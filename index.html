@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WebOS · 网页操作系统</title>
+<meta name="description" content="一个跑在浏览器里的 Windows 11 风格操作系统：文件管理器、终端、记事本、计算器、设置。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='15' height='15' x='1' y='1' rx='2' fill='%230078D4'/%3E%3Crect width='15' height='15' x='16' y='1' rx='2' fill='%230078D4'/%3E%3Crect width='15' height='15' x='1' y='16' rx='2' fill='%230078D4'/%3E%3Crect width='15' height='15' x='16' y='16' rx='2' fill='%230078D4'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ 锁屏 ============ -->
+<div id="lock" class="lock">
+  <div class="lock__bg"></div>
+  <div class="lock__inner">
+    <div class="lock__time" id="lockTime">--:--</div>
+    <div class="lock__date" id="lockDate">--</div>
+    <div class="lock__hint">点击或按任意键进入</div>
+  </div>
+</div>
+
+<!-- ============ 桌面 ============ -->
+<div id="desktop" class="desktop" hidden>
+
+  <!-- 壁纸 + 桌面图标 -->
+  <div class="wallpaper" id="wallpaper"></div>
+  <div class="desk-icons" id="deskIcons"></div>
+
+  <!-- 窗口层 -->
+  <div class="windows" id="windows"></div>
+
+  <!-- 开始菜单 -->
+  <div class="startmenu" id="startmenu" hidden>
+    <div class="sm__search">
+      <span class="sm__ico">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </span>
+      <input id="smSearch" type="search" placeholder="搜索应用" autocomplete="off">
+    </div>
+    <div class="sm__pinned-label">已固定</div>
+    <div class="sm__grid" id="smGrid"></div>
+    <div class="sm__power">
+      <div class="sm__user">
+        <div class="sm__avatar">W</div>
+        <span>User</span>
+      </div>
+      <button class="sm__pw" id="lockBtn" title="锁定">
+        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6zm3 12a2 2 0 110-4 2 2 0 010 4z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 任务栏 -->
+  <div class="taskbar" id="taskbar">
+    <div class="tb__center">
+      <button class="tb__start" id="startBtn" title="开始">
+        <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+      </button>
+      <div class="tb__apps" id="tbApps"></div>
+    </div>
+    <div class="tb__tray">
+      <button class="tray__btn" id="trayTheme" title="切换主题">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36A5.389 5.389 0 0116.9 12.9a5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+      </button>
+      <div class="tray__clock" id="trayClock">
+        <div class="tc__time" id="tcTime">--:--</div>
+        <div class="tc__date" id="tcDate">--/--</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="fs.js"></script>
+<script src="apps.js"></script>
+<script src="os.js"></script>
+</body>
+</html>
