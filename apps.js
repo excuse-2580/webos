@@ -9,6 +9,9 @@ const ICON = {
   calculator: '🧮', settings: '⚙️', txt: '📄',
 };
 
+/* 根目录在两种形态下叫法不同：桌面说「此电脑」，手机说「这部手机」 */
+const ROOT_NAME = () => (OS.mode === 'phone' ? '这部手机' : '此电脑');
+
 const Apps = {
 
 /* ==================== 文件管理器 ==================== */
@@ -25,7 +28,7 @@ explorer: {
         <div class="fm__side">
           <div class="fm__side-t">快速访问</div>
           <div id="fmQuick"></div>
-          <div class="fm__side-t" style="margin-top:8px">此电脑</div>
+          <div class="fm__side-t" style="margin-top:8px" data-root-label>此电脑</div>
         </div>
         <div class="fm__main">
           <div class="fm__bar">
@@ -51,7 +54,7 @@ explorer: {
       quick.innerHTML = SPECIAL.map(p => `
         <button class="fm__nav ${cwd === p ? 'on' : ''}" data-p="${p}">
           <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-          ${p === '/' ? '此电脑' : FS.basename(p)}
+          ${p === '/' ? ROOT_NAME() : FS.basename(p)}
         </button>`).join('');
       quick.querySelectorAll('.fm__nav').forEach(b =>
         b.addEventListener('click', () => { cwd = b.dataset.p; sel = null; render(); }));
@@ -59,7 +62,11 @@ explorer: {
 
     function render() {
       renderQuick();
-      pathEl.textContent = cwd === '/' ? '此电脑' : cwd;
+      // 侧栏分组标题也跟着改
+      const rl = el.querySelector('[data-root-label]');
+      if (rl) rl.textContent = ROOT_NAME();
+
+      pathEl.textContent = cwd === '/' ? ROOT_NAME() : cwd;
       const items = FS.list(cwd);
       if (!items.length) {
         listEl.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text-3);font-size:13px">这个文件夹是空的</div>`;
