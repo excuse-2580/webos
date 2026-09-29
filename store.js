@@ -269,6 +269,8 @@ Apps.store = {
         OS.renderDeskIcons();
       }
       OS.renderStartMenu();
+      // 手机形态下主屏也要跟着变，否则装完找不到图标
+      if (OS.mode === 'phone' && Phone.root) Phone.renderHome();
       progress(id, '正在安装…', () => {
         render();
         if (OS.toast) OS.toast('安装完成');
@@ -279,6 +281,11 @@ Apps.store = {
       const a = AppStore.CATALOG.find(x => x.id === id);
       if (!confirm(`确定卸载「${a ? a.name : id}」？`)) return;
       AppStore.uninstall(id);
+      // 卸载时 Phone.uninstall 会关掉该应用的页面
+      if (OS.mode === 'phone' && Phone.root) {
+        if (AppStore.isInstalled(id) === false) Phone.close(id);
+        Phone.renderHome();
+      }
       progress(id, '正在卸载…', () => {
         render();
         if (OS.toast) OS.toast('已卸载');

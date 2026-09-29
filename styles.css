@@ -83,7 +83,9 @@ svg { width: 20px; height: 20px; fill: currentColor; display: block; }
 
 /* ==================== 锁屏 ==================== */
 .lock {
-  position: fixed; inset: 0; z-index: 200;
+  /* 必须高于手机形态（900）和悬浮钮（1200）：
+     否则刷新后直接进手机形态时，主屏会盖住锁屏、点不到 */
+  position: fixed; inset: 0; z-index: 3000;
   display: grid; place-items: center;
   cursor: pointer;
   transition: opacity var(--d-slow) var(--ease), transform var(--d-slow) var(--ease);
@@ -767,10 +769,226 @@ html[data-theme="dark"] .btn-sm.danger { color: #ff6e5e; }
 }
 
 /* ============================================================
+   手机形态
+   ============================================================ */
+.phone { position: fixed; inset: 0; z-index: 900; background: var(--surface); }
+.ph { height: 100%; display: flex; justify-content: center; align-items: stretch; }
+
+/* 桌面上看时给它一个手机比例的框，手机上就是满屏 */
+.ph__screen {
+  position: relative; width: 100%; max-width: 430px; height: 100%;
+  margin: 0 auto; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+@media (min-width: 700px) {
+  .ph { padding: 18px 0; background: #101010; }
+  .ph__screen { height: min(880px, 100%); border-radius: 34px; overflow: hidden; }
+}
+
+/* ---------- 状态栏 ---------- */
+.ph__status {
+  flex: none; height: 34px; padding: 0 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  background: var(--surface); z-index: 40;
+}
+.ph__st-right { display: flex; align-items: center; gap: 6px; }
+.ph__sig, .ph__wifi { width: 15px; height: 15px; fill: var(--text-2); }
+.ph__bat {
+  display: inline-block; width: 24px; height: 12px;
+  border: 1.5px solid var(--text-2); border-radius: 3px; padding: 1.5px;
+}
+.ph__bat i { display: block; height: 100%; background: var(--text-2); border-radius: 1px; }
+
+/* ---------- 页面容器 ---------- */
+.ph__pages { flex: 1; position: relative; overflow: hidden; }
+
+.ph__home {
+  position: absolute; inset: 0; overflow-y: auto;
+  padding: 14px 14px 0; display: flex; flex-direction: column;
+}
+.ph__grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 8px;
+  padding-top: 8px;
+}
+.ph__icon {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 4px 0;
+}
+.ph__icon-ico {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center; font-size: 26px;
+  background: var(--surface-2); box-shadow: var(--shadow-card);
+  transition: transform var(--d-fast) var(--ease);
+}
+.ph__icon:active .ph__icon-ico { transform: scale(.92); }
+.ph__icon-nm {
+  font-size: 11px; color: var(--text); text-align: center;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ph__dock {
+  margin-top: auto; margin-bottom: 6px;
+  padding: 12px 10px; border-radius: 22px;
+  background: var(--acrylic); backdrop-filter: blur(40px) saturate(180%);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  box-shadow: var(--shadow-card);
+}
+.ph__pagehint {
+  text-align: center; font-size: 11px; color: var(--text-3);
+  padding: 6px 0 2px; flex: none;
+}
+
+/* ---------- 导航条（手势条） ---------- */
+.ph__nav {
+  flex: none; height: 48px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border-top: 1px solid var(--border);
+  z-index: 40;
+}
+.ph__navbtn {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  transition: background var(--d-fast) var(--ease), opacity var(--d-fast) var(--ease);
+}
+.ph__navbtn svg { width: 22px; height: 22px; fill: var(--text); }
+.ph__navbtn:active { background: var(--pressed); }
+.ph__navbtn--home {
+  width: 40px; height: 14px; border-radius: 7px;
+  background: var(--text-3); opacity: .5;
+}
+.ph__navbtn--home.on { opacity: .85; background: var(--accent); }
+
+/* ---------- 应用页 ---------- */
+.ph__app {
+  position: absolute; inset: 0; background: var(--surface);
+  transform: translateY(14px); opacity: 0;
+  transition: transform var(--d-base) var(--ease-out), opacity var(--d-fast) var(--ease);
+  z-index: 1;
+}
+.ph__app.in { transform: none; opacity: 1; }
+.ph__app.on { z-index: 5; }
+/* 后台：真的退下去，否则会盖住主屏、挡住图标点击 */
+.ph__app.bg {
+  transform: translateY(100%); opacity: 0; pointer-events: none; z-index: 0;
+}
+.ph__app-body { height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+.ph__app-body > * { flex: 1; min-height: 0; }
+
+/* ---------- 覆盖层 ---------- */
+.ph__layer {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.42);
+  display: flex; align-items: flex-end;
+  animation: phFade var(--d-fast) var(--ease);
+}
+@keyframes phFade { from { opacity: 0; } to { opacity: 1; } }
+
+.ph__sheet {
+  width: 100%; max-height: 84%;
+  background: var(--surface-2);
+  border-radius: 22px 22px 0 0;
+  padding: 10px 16px 22px;
+  overflow-y: auto;
+  animation: phUp var(--d-base) var(--ease-out);
+  box-shadow: var(--shadow-menu);
+}
+@keyframes phUp { from { transform: translateY(40px); opacity: .5; } to { transform: none; opacity: 1; } }
+.ph__sheet-grab {
+  width: 38px; height: 4px; border-radius: 2px;
+  background: var(--border-strong); margin: 0 auto 12px;
+}
+.ph__sheet-t {
+  font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 12px;
+}
+.ph__sheet-t span { font-size: 12px; color: var(--text-3); font-weight: 400; }
+
+/* 抽屉 */
+.ph__drawer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ph__app-row {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 4px; border-radius: 14px; background: var(--surface-3);
+}
+.ph__app-row:active { background: var(--pressed); }
+.ph__app-row-nm { font-size: 11px; color: var(--text); text-align: center; }
+
+/* 通知栏 */
+.ph__sheet--notify { padding-bottom: 26px; }
+.ph__qs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+.ph__tile {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 12px 4px; border-radius: 18px; background: var(--surface-3);
+  transition: background var(--d-fast) var(--ease);
+}
+.ph__tile span { font-size: 20px; }
+.ph__tile b { font-size: 11px; font-weight: 500; color: var(--text); }
+.ph__tile.on { background: var(--accent); }
+.ph__tile.on b { color: #fff; }
+.ph__accent { display: flex; gap: 10px; justify-content: center; padding: 10px 0 4px; }
+.ph__swatch {
+  width: 32px; height: 32px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+.ph__notif { margin-top: 10px; }
+.ph__notif-t { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 8px; }
+.ph__notif-item {
+  padding: 10px 12px; border-radius: 14px; background: var(--surface-3); margin-bottom: 8px;
+}
+.ph__notif-item b { display: block; font-size: 12px; color: var(--text); }
+.ph__notif-item span { font-size: 11px; color: var(--text-2); }
+.ph__sysinfo { font-size: 11px; color: var(--text-3); text-align: center; padding-top: 6px; }
+
+/* 多任务卡片 */
+.ph__tasks { display: flex; flex-direction: column; gap: 10px; }
+.ph__task {
+  border-radius: 18px; background: var(--surface-3); overflow: hidden;
+  box-shadow: var(--shadow-card); cursor: pointer;
+  transition: transform var(--d-fast) var(--ease);
+}
+.ph__task:active { transform: scale(.98); }
+.ph__task.on { box-shadow: 0 0 0 2px var(--accent), var(--shadow-card); }
+.ph__task-hd {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+}
+.ph__task-ico { font-size: 18px; }
+.ph__task-nm { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+.ph__task-x {
+  width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
+  color: var(--text-2); background: var(--pressed);
+}
+.ph__task-prev {
+  height: 76px; margin: 0 10px 10px; border-radius: 12px;
+  background: var(--surface-2);
+  display: grid; place-items: center;
+  font-size: 12px; color: var(--text-3);
+}
+.ph__tasks-empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13px; }
+.ph__clear {
+  display: block; width: 100%; margin-top: 12px; padding: 10px;
+  border-radius: 14px; background: var(--surface-3);
+  font-size: 13px; color: var(--text);
+}
+
+/* ---------- 形态切换悬浮钮 ---------- */
+.mode-fab {
+  position: fixed; right: 16px; z-index: 1200;
+  bottom: calc(var(--taskbar-h, 52px) + 16px);
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 20px;
+  background: var(--acrylic-strong); backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: var(--shadow-menu);
+  transition: transform var(--d-fast) var(--ease);
+}
+.mode-fab:active { transform: scale(.92); }
+/* 手机形态：底栏是 48px 的手势条，fab 抬到它上面 */
+.phone:not([hidden]) ~ .mode-fab { bottom: 66px; }
+
+/* ============================================================
    兜底：[hidden] 必须真的隐藏
    ------------------------------------------------------------
-   .snk__msg 之类带 display 的规则会盖掉 UA 的 [hidden]{display:none}，
-   导致元素带着 hidden 属性却仍然显示（表现为一条空的提示条）。
-   放在最后，优先级最高。
+   带 display 的规则会盖掉 UA 的 [hidden]{display:none}，
+   导致元素带着 hidden 属性却仍然显示。放在最后，优先级最高。
    ============================================================ */
 [hidden] { display: none !important; }

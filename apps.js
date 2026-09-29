@@ -427,9 +427,20 @@ settings: {
           <button id="setReset" style="padding:8px 16px;border-radius:6px;background:var(--surface-3);font-size:13px">重置文件系统</button>
         </div>
         <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">系统 · 形态</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="setModeDesk" style="padding:8px 16px;border-radius:6px;background:var(--surface-3);font-size:13px">🖥️ 桌面形态</button>
+            <button id="setModePh" style="padding:8px 16px;border-radius:6px;background:var(--surface-3);font-size:13px">📱 手机形态</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px">
+            手机形态是同一套应用的另一层壳：状态栏、主屏网格、Dock、卡片式多任务。
+            切换不会丢数据。
+          </div>
+        </div>
+        <div>
           <div style="font-size:13px;font-weight:600;margin-bottom:6px">关于</div>
           <div style="font-size:12px;color:var(--text-2);line-height:1.9">
-            WebOS 1.0.0<br>纯前端实现，零依赖零构建。<br>数据保存在浏览器 localStorage 中。
+            WebOS 1.2.0<br>纯前端实现，零依赖零构建。<br>数据保存在浏览器 localStorage 中。
           </div>
         </div>
       </div>`;
@@ -465,6 +476,12 @@ settings: {
     }
     el.querySelector('#setReset').addEventListener('click', () => {
       if (confirm('确定重置文件系统？所有改动都会丢失。')) { FS.reset(); sync(); OS.toast('文件系统已重置'); }
+    });
+    el.querySelector('#setModeDesk').addEventListener('click', () => {
+      if (OS.mode === 'desktop') return; OS.switchMode('desktop');
+    });
+    el.querySelector('#setModePh').addEventListener('click', () => {
+      if (OS.mode === 'phone') return; OS.switchMode('phone');
     });
     sync();
   }

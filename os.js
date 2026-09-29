@@ -9,6 +9,8 @@ const OS = {
   seq: 0,
 
   /* ---------- 启动 ---------- */
+  mode: 'desktop',     // desktop | phone
+
   init() {
     FS.load();
     // 商店应用要在渲染桌面和开始菜单之前挂进 Apps
@@ -20,6 +22,63 @@ const OS = {
     this.renderDeskIcons();
     this.renderStartMenu();
     this.startClock();
+    this.bindModeFab();
+
+    // 上次用的形态：手机就进手机，桌面就桌面
+    const saved = localStorage.getItem('webos.mode.v1');
+    if (saved === 'phone') {
+      this.mode = 'phone';
+      Phone.build();
+      document.getElementById('phone').hidden = false;
+      document.getElementById('modeFabIco').textContent = '🖥️';
+      document.getElementById('modeFab').hidden = false;
+    }
+  },
+
+  /* ---------- 形态切换 ---------- */
+  switchMode(mode, skipSave) {
+    this.mode = mode;
+    if (mode === 'phone') {
+      if (!Phone.root) Phone.build();
+      Phone.show();
+      document.getElementById('modeFabIco').textContent = '🖥️';
+    } else {
+      if (Phone.root) Phone.hide();
+      // 回桌面时把手机上的页面清掉，避免下次进来还留着
+      Phone.closeAll();
+      document.getElementById('modeFabIco').textContent = '📱';
+    }
+    if (!skipSave) localStorage.setItem('webos.mode.v1', mode);
+    const fab = document.getElementById('modeFab');
+    if (fab) fab.hidden = false;
+    this.toast(mode === 'phone' ? '已切换到手机形态' : '已切换到桌面形态');
+  },
+
+  bindModeFab() {
+    const fab = document.getElementById('modeFab');
+    fab.addEventListener('click', () => {
+      this.switchMode(this.mode === 'phone' ? 'desktop' : 'phone');
+    });
+  },
+
+  /* 手机形态下重新锁屏 */
+  lockPhone() {
+    if (Phone.root) Phone.closeAll();
+    Phone.closeLayers();
+    document.getElementById('phone').hidden = true;
+    const lock = document.getElementById('lock');
+    lock.classList.remove('out');
+    lock.style.display = '';
+    document.getElementById('desktop').hidden = false;
+    // 解锁后回到手机形态
+    const once = () => {
+      lock.removeEventListener('click', once);
+      if (localStorage.getItem('webos.mode.v1') === 'phone') {
+        document.getElementById('desktop').hidden = true;
+        document.getElementById('phone').hidden = false;
+      }
+    };
+    lock.addEventListener('click', once);
   },
 
   /* ---------- 轻提示（商店装/卸应用时用） ---------- */
@@ -29,7 +88,8 @@ const OS = {
     if (!el) {
       el = document.createElement('div');
       el.id = 'osToast'; el.className = 'os-toast';
-      document.getElementById('desktop').appendChild(el);
+      // 挂到 body：手机形态下 desktop 是隐藏的，挂里面就看不见了
+      document.body.appendChild(el);
     }
     el.textContent = msg;
     el.classList.add('on');
@@ -60,7 +120,9 @@ const OS = {
     const enter = () => {
       lock.classList.add('out');
       setTimeout(() => { lock.style.display = 'none'; }, 340);
-      document.getElementById('desktop').hidden = false;
+      // 按当前形态解锁到对应界面，别一律回桌面
+      if (this.mode === 'phone') document.getElementById('phone').hidden = false;
+      else document.getElementById('desktop').hidden = false;
       this.updateClock();
     };
     lock.addEventListener('click', enter);
@@ -189,6 +251,8 @@ const OS = {
   launch(appId, arg) {
     const app = Apps[appId];
     if (!app) return;
+    // 手机形态不走窗口系统，交给 Phone 开全屏页
+    if (this.mode === 'phone') { Phone.open(appId); return; }
     this.closeStart();
 
     // 记事本带文件路径时，若已有该文件的窗口就激活它
