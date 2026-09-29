@@ -11,12 +11,30 @@ const OS = {
   /* ---------- 启动 ---------- */
   init() {
     FS.load();
+    // 商店应用要在渲染桌面和开始菜单之前挂进 Apps
+    AppStore.load();
+    AppStore.installed.forEach(id => { if (!this.deskAppIds.includes(id)) this.deskAppIds.push(id); });
     this.restorePrefs();
     this.bindLock();
     this.bindTaskbar();
     this.renderDeskIcons();
     this.renderStartMenu();
     this.startClock();
+  },
+
+  /* ---------- 轻提示（商店装/卸应用时用） ---------- */
+  toastTimer: null,
+  toast(msg) {
+    let el = document.getElementById('osToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'osToast'; el.className = 'os-toast';
+      document.getElementById('desktop').appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => el.classList.remove('on'), 2400);
   },
 
   /* ---------- 偏好（主题 / 强调色） ---------- */
@@ -75,9 +93,11 @@ const OS = {
   },
 
   /* ---------- 桌面图标 ---------- */
-  deskAppIds: ['explorer', 'terminal', 'notepad', 'calculator', 'settings'],
+  deskAppIds: ['explorer', 'terminal', 'notepad', 'calculator', 'settings', 'store'],
   renderDeskIcons() {
     const box = document.getElementById('deskIcons');
+    // 过滤掉已被卸载的，避免 Apps[id] 为 undefined 时报错
+    this.deskAppIds = this.deskAppIds.filter(id => Apps[id]);
     box.innerHTML = this.deskAppIds.map(id => {
       const a = Apps[id];
       return `<button class="dicon" data-app="${id}">
@@ -324,7 +344,14 @@ const OS = {
   closeWin(id) {
     const i = this.wins.findIndex(x => x.id === id);
     if (i < 0) return;
-    this.wins[i].el.remove();
+    const win = this.wins[i];
+    // 应用可以注册清理钩子（清定时器、摘掉全局键盘监听等）
+    const body = win.el.querySelector('.win__body');
+    if (body && body.__closeHooks) {
+      body.__closeHooks.forEach(f => { try { f(); } catch (e) { /* 单个钩子报错不影响关窗 */ } });
+      body.__closeHooks = null;
+    }
+    win.el.remove();
     this.wins.splice(i, 1);
     this.renderTaskbar();
   },
