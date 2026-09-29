@@ -31,16 +31,69 @@ const Phone = {
   },
 
   homeIds() {
-    // 主屏 = 桌面图标 + 已装应用，去掉已在 Dock 的
-    const dock = this.dockIds();
+    // 主屏放全部应用。Dock 只是底部快捷栏，和主屏可以重复——
+    // 真实手机就是这样（Android 抽屉里有，Dock 上也有一份）。
     const all = OS.deskAppIds.concat([...AppStore.installed]);
     const seen = new Set();
     const out = [];
     for (const id of all) {
-      if (!Apps[id] || dock.includes(id) || seen.has(id)) continue;
+      if (!Apps[id] || seen.has(id)) continue;
       seen.add(id); out.push(id);
     }
     return out;
+  },
+
+  /* ============================================================
+     主屏分页
+     布局存 localStorage，格式 { pages: [[id,…], [id,…]] }
+     ============================================================ */
+  PER_PAGE: 8,           // 4 列 × 2 行：小屏一页 8 个不挤，应用多了自然分页
+  LAYOUT_KEY: 'webos.phone.layout.v1',
+  page: 0,               // 当前页下标
+
+  loadLayout() {
+    try {
+      const o = JSON.parse(localStorage.getItem(this.LAYOUT_KEY));
+      if (o && Array.isArray(o.pages)) return o.pages.map(p => Array.isArray(p) ? p.slice() : []);
+    } catch (e) { /* 坏了就当没有，下面会重建 */ }
+    return null;
+  },
+  saveLayout(pages) {
+    try { localStorage.setItem(this.LAYOUT_KEY, JSON.stringify({ pages })); }
+    catch (e) { /* 配额满就算了，当前会话仍可用 */ }
+  },
+
+  /* 把「该在主屏的 id」和「用户存的布局」合并成规范的分页 */
+  homePages() {
+    const ids = this.homeIds();
+    let pages = this.loadLayout() || [];
+
+    // 清掉已卸载的、已进 Dock 的、重复的
+    const seen = new Set();
+    pages = pages.map(p => p.filter(id => {
+      if (!Apps[id] || seen.has(id) || !ids.includes(id)) return false;
+      seen.add(id); return true;
+    }));
+
+    // 新装的应用补到最后一页（满了就开新页）
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      let last = pages[pages.length - 1];
+      if (!last || last.length >= this.PER_PAGE) { last = []; pages.push(last); }
+      last.push(id);
+      seen.add(id);
+    }
+
+    pages = pages.filter(p => p.length);
+    if (!pages.length) pages = [[]];
+    return pages;
+  },
+
+  /* 从当前 DOM 读回布局并保存（拖拽排序后调用） */
+  commitLayout() {
+    const pages = [...document.querySelectorAll('.ph__page')].map(pg =>
+      [...pg.querySelectorAll('.ph__icon')].map(b => b.dataset.app));
+    this.saveLayout(pages);
   },
 
   /* ============================================================
@@ -124,24 +177,249 @@ const Phone = {
     this.clockIv = setInterval(tick, 10000);
   },
 
-  /* ---------- 主屏 ---------- */
+  /* ---------- 主屏（分页 + 左右滑） ---------- */
   renderHome() {
     const box = document.getElementById('phHome');
     if (!box) return;
-    const home = this.homeIds();
+    const pages = this.homePages();
     const dock = this.dockIds();
+    // 页数变少时别停在空页上
+    if (this.page >= pages.length) this.page = pages.length - 1;
+    if (this.page < 0) this.page = 0;
 
     box.innerHTML = `
-      <div class="ph__grid">
-        ${home.map(id => this.iconHtml(id)).join('')}
+      <div class="ph__pager" id="phPager">
+        <div class="ph__track" id="phTrack">
+          ${pages.map(p => `
+            <div class="ph__page">
+              <div class="ph__grid">${p.map(id => this.iconHtml(id)).join('')}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="ph__dots" id="phDots">
+        ${pages.map((_, i) => `<button class="ph__dot ${i === this.page ? 'on' : ''}" data-p="${i}" title="第 ${i + 1} 页"></button>`).join('')}
       </div>
       <div class="ph__dock">
         ${dock.map(id => this.iconHtml(id)).join('')}
       </div>
-      <div class="ph__pagehint">上滑查看全部应用</div>`;
+      <div class="ph__pagehint">左右滑动翻页 · 长按图标可拖动排序</div>`;
 
+    this.applyPage(false);
+    this.bindHomeGestures();
+    this.bindIconDrag();
+
+    // 点图标打开应用（拖动时不会触发，drag 里会抑制 click）
     box.querySelectorAll('[data-app]').forEach(b =>
-      b.addEventListener('click', () => this.open(b.dataset.app)));
+      b.addEventListener('click', (e) => {
+        if (this.__justDragged) { this.__justDragged = false; return; }
+        this.open(b.dataset.app);
+      }));
+
+    box.querySelectorAll('.ph__dot').forEach(d =>
+      d.addEventListener('click', () => this.setPage(+d.dataset.p)));
+  },
+
+  applyPage(animate) {
+    const track = document.getElementById('phTrack');
+    if (!track) return;
+    track.style.transition = animate ? '' : 'none';
+    track.style.transform = `translateX(${-this.page * 100}%)`;
+    if (!animate) {
+      // 强制回流，确保下一次带动画的切换生效
+      void track.offsetWidth;
+      track.style.transition = '';
+    }
+    const dots = document.querySelectorAll('.ph__dot');
+    dots.forEach((d, i) => d.classList.toggle('on', i === this.page));
+  },
+
+  setPage(n, animate) {
+    const total = document.querySelectorAll('.ph__page').length;
+    const next = Math.max(0, Math.min(total - 1, n));
+    if (next === this.page) { this.applyPage(animate !== false); return; }
+    this.page = next;
+    this.applyPage(animate !== false);
+  },
+
+  /* ---------- 左右滑翻页 ----------
+     绑在 phHome 上而不是 pager 上：renderHome 会重建 pager，
+     每次重绑会给 window 挂监听器，多渲染几次就泄漏了。 */
+  bindHomeGestures() {
+    const box = document.getElementById('phHome');
+    if (!box || box.__swipeBound) return;
+    box.__swipeBound = true;
+
+    let sx = null, sy = null, dx = 0, locked = null, w = 0;
+    const track = () => document.getElementById('phTrack');
+    const pager = () => document.getElementById('phPager');
+
+    const down = (e) => {
+      if (this.dragMode) return;               // 正在拖图标就不管翻页
+      if (!e.target.closest('.ph__pager')) return;
+      sx = (e.touches ? e.touches[0] : e).clientX;
+      sy = (e.touches ? e.touches[0] : e).clientY;
+      dx = 0; locked = null;
+      w = (pager() ? pager().clientWidth : 0) || 1;
+    };
+
+    const move = (e) => {
+      if (sx == null || this.dragMode) return;
+      const cx = (e.touches ? e.touches[0] : e).clientX;
+      const cy = (e.touches ? e.touches[0] : e).clientY;
+      dx = cx - sx;
+      const dy = cy - sy;
+      // 首次移动时判断方向：横向就吃掉手势，纵向留给页面滚动
+      if (locked == null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+      if (locked !== 'x') return;
+      if (e.cancelable) e.preventDefault();
+      const t = track();
+      t.style.transition = 'none';
+      t.style.transform = `translateX(calc(${-this.page * 100}% + ${dx}px))`;
+    };
+
+    const up = () => {
+      const t = track();
+      if (sx == null) return;
+      const wasX = locked === 'x';
+      const d = dx;
+      sx = null; sy = null; locked = null;
+      if (!wasX) return;
+      t.style.transition = '';
+      // 超过 22% 宽度就翻页，否则弹回
+      const total = document.querySelectorAll('.ph__page').length;
+      if (Math.abs(d) > w * 0.22) {
+        const n = this.page + (d < 0 ? 1 : -1);
+        if (n >= 0 && n < total) this.setPage(n, true);
+        else { t.style.transform = `translateX(${-this.page * 100}%)`; }
+      } else {
+        t.style.transform = `translateX(${-this.page * 100}%)`;
+      }
+    };
+
+    box.addEventListener('touchstart', down, { passive: true });
+    box.addEventListener('touchmove', move, { passive: false });
+    box.addEventListener('touchend', up, { passive: true });
+    box.addEventListener('touchcancel', up, { passive: true });
+    box.addEventListener('mousedown', down);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  },
+
+  /* ---------- 长按拖动图标（可跨页） ---------- */
+  bindIconDrag() {
+    const box = document.getElementById('phHome');
+    if (!box || box.__dragBound) return;
+    box.__dragBound = true;
+
+    let timer = null, ghost = null, src = null, moved = false;
+    let sx = 0, sy = 0, edgeTimer = null, lx = 0, ly = 0;
+
+    const clearGhost = () => {
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (src) { src.classList.remove('dragging'); src = null; }
+      clearTimeout(timer); clearInterval(edgeTimer); edgeTimer = null;
+      this.dragMode = false;
+    };
+
+    const start = (x, y) => {
+      this.dragMode = true;
+      moved = false;
+      src.classList.add('dragging');
+      ghost = document.createElement('div');
+      ghost.className = 'ph__ghost';
+      ghost.innerHTML = src.querySelector('.ph__icon-ico').outerHTML;
+      document.body.appendChild(ghost);
+      moveGhost(x, y);
+      // 拖到左右边缘停留 → 自动翻页。
+      // 翻完要按当前指针位置再排一次，否则松手时图标还留在原来那页。
+      edgeTimer = setInterval(() => {
+        if (!ghost) return;
+        const gx = parseFloat(ghost.style.left) || 0;
+        const w = window.innerWidth;
+        let n = null;
+        if (gx < w * 0.16) n = this.page - 1;
+        else if (gx > w * 0.84) n = this.page + 1;
+        if (n == null) return;
+        const before = this.page;
+        this.setPage(n, true);
+        if (this.page !== before) setTimeout(() => reorder(lx, ly), 260);
+      }, 700);
+    };
+
+    const moveGhost = (x, y) => {
+      if (ghost) { ghost.style.left = x + 'px'; ghost.style.top = y + 'px'; }
+    };
+
+    /* 把 src 插到目标图标前面（在同一页里移动；跨页时先切页再插） */
+    const reorder = (x, y) => {
+      if (!src) return;
+      ghost && (ghost.style.display = 'none');
+      const under = document.elementFromPoint(x, y);
+      ghost && (ghost.style.display = '');
+      if (!under) return;
+      const target = under.closest('.ph__icon');
+      const page = under.closest('.ph__page');
+      if (!page) return;
+      const grid = page.querySelector('.ph__grid');
+      // 落在本页空白处：追加到末尾（跨页时这一步就把图标搬过来了）
+      if (!target || target === src) {
+        if (page !== src.closest('.ph__page')) grid.appendChild(src);
+        return;
+      }
+      if (target.dataset.app === src.dataset.app) return;
+      // 判断是否插到 target 之后（指针在其右半边或下半边）
+      const r = target.getBoundingClientRect();
+      const after = x > r.left + r.width / 2;
+      if (after) target.after(src); else target.before(src);
+    };
+
+    const onDown = (e) => {
+      if (e.target.closest('.ph__dot') || e.target.closest('.ph__dock')) return;
+      const icon = e.target.closest('.ph__icon');
+      if (!icon) return;
+      src = icon;
+      const p = e.touches ? e.touches[0] : e;
+      sx = p.clientX; sy = p.clientY;
+      timer = setTimeout(() => start(p.clientX, p.clientY), 380);
+    };
+
+    const onMove = (e) => {
+      if (src && !ghost && (e.touches || e.buttons)) {
+        const p = e.touches ? e.touches[0] : e;
+        if (Math.hypot(p.clientX - sx, p.clientY - sy) > 8) { clearTimeout(timer); src = null; }
+        return;
+      }
+      if (!ghost) return;
+      e.preventDefault();
+      const p = e.touches ? e.touches[0] : e;
+      moved = true;
+      lx = p.clientX; ly = p.clientY;
+      moveGhost(p.clientX, p.clientY);
+      reorder(p.clientX, p.clientY);
+    };
+
+    const onUp = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (ghost) {
+        this.commitLayout();
+        this.__justDragged = true;
+        setTimeout(() => { this.__justDragged = false; }, 60);
+        clearGhost();
+        // 页数可能因为拖空而需要合并，重渲染一次
+        this.renderHome();
+      }
+      src = null; moved = false;
+    };
+
+    box.addEventListener('touchstart', onDown, { passive: true });
+    box.addEventListener('touchmove', onMove, { passive: false });
+    box.addEventListener('touchend', onUp, { passive: true });
+    box.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   },
 
   iconHtml(id) {

@@ -806,12 +806,49 @@ html[data-theme="dark"] .btn-sm.danger { color: #ff6e5e; }
 .ph__pages { flex: 1; position: relative; overflow: hidden; }
 
 .ph__home {
-  position: absolute; inset: 0; overflow-y: auto;
+  position: absolute; inset: 0; overflow: hidden;
   padding: 14px 14px 0; display: flex; flex-direction: column;
+}
+
+/* ---------- 分页 ---------- */
+.ph__pager { flex: 1; position: relative; overflow: hidden; min-height: 0; }
+.ph__track {
+  display: flex; height: 100%;
+  transition: transform var(--d-base) var(--ease-out);
+  will-change: transform;
+}
+.ph__page {
+  width: 100%; flex: none; height: 100%;
+  overflow-y: auto; padding-bottom: 4px;
 }
 .ph__grid {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 8px;
-  padding-top: 8px;
+  padding-top: 8px; align-content: start;
+}
+
+/* 页码点 */
+.ph__dots {
+  flex: none; display: flex; justify-content: center; gap: 6px;
+  padding: 8px 0 6px;
+}
+.ph__dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3); opacity: .38;
+  transition: opacity var(--d-fast) var(--ease), width var(--d-fast) var(--ease);
+}
+.ph__dot.on { opacity: 1; background: var(--accent); width: 16px; border-radius: 4px; }
+
+/* ---------- 拖动排序 ---------- */
+.ph__icon.dragging { opacity: .3; }
+.ph__ghost {
+  position: fixed; z-index: 9999; pointer-events: none;
+  transform: translate(-50%, -50%) scale(1.12);
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
+}
+.ph__ghost .ph__icon-ico {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center; font-size: 26px;
+  background: var(--surface-2);
 }
 .ph__icon {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -838,7 +875,7 @@ html[data-theme="dark"] .btn-sm.danger { color: #ff6e5e; }
 }
 .ph__pagehint {
   text-align: center; font-size: 11px; color: var(--text-3);
-  padding: 6px 0 2px; flex: none;
+  padding: 4px 0 2px; flex: none;
 }
 
 /* ---------- 导航条（手势条） ---------- */
