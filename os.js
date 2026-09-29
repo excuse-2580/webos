@@ -13,6 +13,7 @@ const OS = {
 
   init() {
     FS.load();
+    Assistant.load();
     // 商店应用要在渲染桌面和开始菜单之前挂进 Apps
     AppStore.load();
     AppStore.installed.forEach(id => { if (!this.deskAppIds.includes(id)) this.deskAppIds.push(id); });
@@ -155,7 +156,7 @@ const OS = {
   },
 
   /* ---------- 桌面图标 ---------- */
-  deskAppIds: ['explorer', 'terminal', 'notepad', 'calculator', 'settings', 'store'],
+  deskAppIds: ['explorer', 'terminal', 'notepad', 'calculator', 'settings', 'store', 'assistant'],
   renderDeskIcons() {
     const box = document.getElementById('deskIcons');
     // 过滤掉已被卸载的，避免 Apps[id] 为 undefined 时报错

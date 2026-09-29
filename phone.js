@@ -551,15 +551,46 @@ const Phone = {
     d.hidden = !open;
   },
 
+  /* ============================================================
+     AI 助理面板（长按 Home 呼出）
+     半屏，从底部升起。用 Apps.assistant.mount 复用同一份实现。
+     ============================================================ */
+  openAssistant() {
+    let layer = document.getElementById('phAssist');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'phAssist';
+      layer.className = 'ph__layer ph__layer--as';
+      document.getElementById('phScreen').appendChild(layer);
+      layer.addEventListener('click', (e) => { if (e.target === layer) this.closeAssistant(); });
+    }
+    layer.hidden = false;
+    layer.innerHTML = `
+      <div class="as-sheet">
+        <div class="as-sheet__grab"></div>
+        <div class="as-sheet__body"></div>
+      </div>`;
+    Apps.assistant.mount(layer.querySelector('.as-sheet__body'));
+    this.assistOpen = true;
+  },
+
+  closeAssistant() {
+    const layer = document.getElementById('phAssist');
+    if (layer) layer.hidden = true;
+    this.assistOpen = false;
+  },
+
   closeLayers() {
     ['phDrawer', 'phNotify', 'phTasks'].forEach(id => {
       const e = document.getElementById(id);
       if (e) e.hidden = true;
     });
+    this.closeAssistant();
   },
 
   anyLayerOpen() {
-    return ['phDrawer', 'phNotify', 'phTasks'].some(id => {
+    const ids = ['phDrawer', 'phNotify', 'phTasks', 'phAssist'];
+    return ids.some(id => {
       const e = document.getElementById(id);
       return e && !e.hidden;
     });
@@ -647,6 +678,13 @@ const Phone = {
     if (this.cur) this.close(this.cur);
   },
 
+  /* Esc 也关助理 */
+  handleEsc() {
+    const a = document.getElementById('phAssist');
+    if (a && !a.hidden) { this.closeAssistant(); return true; }
+    return false;
+  },
+
   syncNav() {
     const back = document.getElementById('phBack');
     if (back) back.style.opacity = this.cur ? '1' : '.35';
@@ -661,7 +699,31 @@ const Phone = {
     const screen = document.getElementById('phScreen');
     const nav = document.getElementById('phNav');
 
-    document.getElementById('phHomeBtn').addEventListener('click', () => this.home());
+    /* Home 键：点一下回主屏，长按 380ms 呼出 AI 助理。
+       长按触发后要压掉随后的 click，否则会先开助理再被回主屏。 */
+    const homeBtn = document.getElementById('phHomeBtn');
+    let lpTimer = null, lpFired = false;
+    const lpStart = (e) => {
+      lpFired = false;
+      clearTimeout(lpTimer);
+      lpTimer = setTimeout(() => {
+        lpFired = true;
+        homeBtn.classList.add('pressed');
+        this.openAssistant();
+        setTimeout(() => homeBtn.classList.remove('pressed'), 260);
+      }, 380);
+    };
+    const lpEnd = () => { clearTimeout(lpTimer); lpTimer = null; };
+    homeBtn.addEventListener('touchstart', lpStart, { passive: true });
+    homeBtn.addEventListener('touchend', lpEnd, { passive: true });
+    homeBtn.addEventListener('touchcancel', lpEnd, { passive: true });
+    homeBtn.addEventListener('mousedown', lpStart);
+    homeBtn.addEventListener('mouseup', lpEnd);
+    homeBtn.addEventListener('mouseleave', lpEnd);
+    homeBtn.addEventListener('click', (e) => {
+      if (lpFired) { lpFired = false; e.stopPropagation(); return; }
+      this.home();
+    });
     document.getElementById('phBack').addEventListener('click', () => this.back());
     document.getElementById('phRecents').addEventListener('click', () => this.toggleTasks());
 
@@ -693,7 +755,10 @@ const Phone = {
     // 点层内空白处也能关（抽屉的空白区）
     document.addEventListener('keydown', (e) => {
       if (OS.mode !== 'phone') return;
-      if (e.key === 'Escape') { if (this.anyLayerOpen()) this.closeLayers(); else this.back(); }
+      if (e.key === 'Escape') {
+        if (this.handleEsc()) return;
+        if (this.anyLayerOpen()) this.closeLayers(); else this.back();
+      }
     });
 
     // 状态栏下拉也能开通知

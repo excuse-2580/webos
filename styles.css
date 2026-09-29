@@ -1029,3 +1029,120 @@ html[data-theme="dark"] .btn-sm.danger { color: #ff6e5e; }
    导致元素带着 hidden 属性却仍然显示。放在最后，优先级最高。
    ============================================================ */
 [hidden] { display: none !important; }
+
+/* ============================================================
+   AI 助理
+   ============================================================ */
+.as { height: 100%; display: flex; flex-direction: column; background: var(--surface); }
+
+.as__hd {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.as__logo {
+  width: 34px; height: 34px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 18px;
+  background: linear-gradient(135deg, var(--accent), #00B4D8); color: #fff;
+}
+.as__hd-tx { flex: 1; min-width: 0; }
+.as__t { font-size: 14px; font-weight: 600; color: var(--text); }
+.as__sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.as__sub.on { color: var(--accent); }
+.as__cfg {
+  width: 32px; height: 32px; border-radius: 50%; font-size: 15px;
+  display: grid; place-items: center; flex: none;
+}
+.as__cfg:hover { background: var(--hover); }
+
+.as__body {
+  flex: 1; overflow-y: auto; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.as__msg { display: flex; }
+.as__msg.me { justify-content: flex-end; }
+.as__bub {
+  max-width: 82%; padding: 9px 13px; border-radius: 16px;
+  font-size: 13px; line-height: 19px; color: var(--text);
+  background: var(--surface-3); white-space: pre-wrap; word-break: break-word;
+}
+.as__msg.me .as__bub { background: var(--accent); color: #fff; border-bottom-right-radius: 5px; }
+.as__msg.ai .as__bub { border-bottom-left-radius: 5px; }
+.as__bub.typing { color: var(--text-3); font-style: italic; }
+
+.as__chips {
+  flex: none; display: flex; gap: 6px; overflow-x: auto;
+  padding: 8px 12px; scrollbar-width: none;
+}
+.as__chips::-webkit-scrollbar { display: none; }
+.as__chips button {
+  flex: none; height: 30px; padding: 0 12px; border-radius: 15px;
+  font-size: 12px; color: var(--text-2); background: var(--surface-3);
+  white-space: nowrap;
+}
+.as__chips button:hover { background: var(--pressed); }
+
+.as__in {
+  flex: none; display: flex; gap: 8px; align-items: center;
+  padding: 10px 12px; border-top: 1px solid var(--border);
+}
+.as__in input {
+  flex: 1; height: 40px; padding: 0 14px; border-radius: 20px;
+  border: 1px solid var(--border-strong); background: var(--surface-2);
+  color: var(--text); font-size: 13px; outline: none;
+}
+.as__in input:focus { border-color: var(--accent); }
+.as__in button {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  background: var(--accent); display: grid; place-items: center;
+}
+.as__in button svg { width: 19px; height: 19px; fill: #fff; margin-left: -2px; }
+
+/* 设置面板 */
+.as__cfgp {
+  flex: none; padding: 12px 14px; border-top: 1px solid var(--border);
+  background: var(--surface-2); max-height: 46%; overflow-y: auto;
+}
+.as__cfg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.as__cfg-row label { width: 62px; flex: none; font-size: 12px; color: var(--text-2); }
+.as__cfg-row input {
+  flex: 1; height: 32px; padding: 0 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text); font-size: 12px; outline: none;
+}
+.as__cfg-row input:focus { border-color: var(--accent); }
+.as__cfg-act { display: flex; gap: 8px; margin: 10px 0 8px; }
+.as__cfg-tip { font-size: 11px; line-height: 17px; color: var(--text-3); }
+.as__cfg-tip.ok { color: var(--accent); }
+.as__cfg-tip.warn { color: #c42b1c; }
+html[data-theme="dark"] .as__cfg-tip.warn { color: #ff6e5e; }
+.as__presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.as__presets button {
+  height: 28px; padding: 0 10px; border-radius: 14px;
+  font-size: 11px; color: var(--text-2); background: var(--surface-3);
+}
+.as__presets button:hover { background: var(--pressed); }
+
+/* ---------- 手机形态：半屏助理面板 ----------
+   bottom 留出导航条高度：助理不能盖住导航条，
+   否则面板打开时用户点不到返回 / Home / 多任务。 */
+.ph__layer--as { align-items: flex-end; bottom: 48px; }
+.as-sheet {
+  width: 100%; height: 82%;
+  background: var(--surface-2);
+  border-radius: 22px 22px 0 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: phUp var(--d-base) var(--ease-out);
+  box-shadow: var(--shadow-menu);
+}
+.as-sheet__grab {
+  width: 38px; height: 4px; border-radius: 2px; flex: none;
+  background: var(--border-strong); margin: 10px auto 0;
+}
+.as-sheet__body { flex: 1; min-height: 0; overflow: hidden; }
+
+/* Home 键长按反馈 */
+.ph__navbtn--home.pressed {
+  transform: scaleX(.6); background: var(--accent); opacity: 1;
+}
+
+[hidden] { display: none !important; }
